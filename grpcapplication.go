@@ -137,6 +137,7 @@ func (a *GrpcApplication) Terminate(ctx context.Context) {
 		}
 
 		for {
+			<-time.After(250 * time.Millisecond)
 			if a.connCount <= 0 {
 				err = nil
 				break
@@ -145,7 +146,6 @@ func (a *GrpcApplication) Terminate(ctx context.Context) {
 			if err != nil {
 				break
 			}
-			<-time.After(250 * time.Millisecond)
 		}
 		a.grpcServer.Stop()
 		if err != nil {
