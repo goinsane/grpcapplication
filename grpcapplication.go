@@ -1,3 +1,4 @@
+// Package grpcapplication offers an Application implementation of github.com/goinsane/application for GRPC applications.
 package grpcapplication
 
 import (
@@ -21,13 +22,27 @@ import (
 	"google.golang.org/grpc"
 )
 
+// GrpcApplication is an implementation of Application optimized by GRPC applications.
 type GrpcApplication struct {
+	// App is an Application instance for wrapping notification methods if needed.
 	App           application.Application
+
+	// Logger logs error and warning logs if needed.
 	Logger        *xlog.Logger
+
+	// HTTPServer for using custom HTTP server if needed.
 	HTTPServer    *http.Server
+
+	// RegisterFunc for registering GRPC services. If it is nil, the GrpcApplication doesn't handle any request.
 	RegisterFunc  RegisterFunc
+
+	// Listeners for serving requests. If it is nil, the GrpcApplication doesn't serve any connection.
 	Listeners     []net.Listener
+
+	// If HandleMetrics is true, the GRPCApplication serves /metrics end-point for prometheus metrics .
 	HandleMetrics bool
+
+	// If HandleDebug is true, the GRPCApplication serves /debug end-point for pprof.
 	HandleDebug   bool
 
 	started       int32
@@ -38,6 +53,7 @@ type GrpcApplication struct {
 	grpcConnCount int64
 }
 
+// RegisterFunc is a type of function for using in GRPCApplication.
 type RegisterFunc func(grpcServer *grpc.Server, httpServeMux *http.ServeMux)
 
 func (a *GrpcApplication) httpHandler(w http.ResponseWriter, r *http.Request) {
@@ -58,6 +74,8 @@ func (a *GrpcApplication) httpHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// Start implements Application.Start(). It initializes HTTP and GRPC servers, calls RegisterFunc.
+// And after calls App.Start() if App isn't nil.
 func (a *GrpcApplication) Start() {
 	if !atomic.CompareAndSwapInt32(&a.started, 0, 1) {
 		panic("already started")
@@ -96,6 +114,8 @@ func (a *GrpcApplication) Start() {
 	}
 }
 
+// Run implements Application.Run(). It calls Serve methods for given listeners.
+// And also it calls App.Run() asynchronously if App isn't nil.
 func (a *GrpcApplication) Run(ctx application.Context) {
 	var wg sync.WaitGroup
 
@@ -121,6 +141,8 @@ func (a *GrpcApplication) Run(ctx application.Context) {
 	wg.Wait()
 }
 
+// Terminate implements Application.Terminate(). It terminates servers.
+// And also it calls App.Terminate() asynchronously if App isn't nil.
 func (a *GrpcApplication) Terminate(ctx context.Context) {
 	var wg sync.WaitGroup
 
@@ -163,6 +185,8 @@ func (a *GrpcApplication) Terminate(ctx context.Context) {
 	wg.Wait()
 }
 
+// Stop implements Application.Stop().
+// And also it calls App.Stop() if App isn't nil.
 func (a *GrpcApplication) Stop() {
 	// first implement GrpcApplication codes
 	if a.App != nil {
