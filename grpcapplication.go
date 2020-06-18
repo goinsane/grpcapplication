@@ -33,12 +33,6 @@ type GRPCApplication struct {
 	// HTTPServer for using custom HTTP server if needed.
 	HTTPServer *http.Server
 
-	// Use h2c
-	UseH2C bool
-
-	// Use TLS
-	UseTLS bool
-
 	// GRPCServerOptions for additional server options if needed.
 	GRPCServerOptions []grpc.ServerOption
 
@@ -95,12 +89,8 @@ func (a *GRPCApplication) Start() {
 			ErrorLog: log.New(ioutil.Discard, "", log.LstdFlags),
 		}
 	}
-	if a.UseH2C {
-		http2Server := &http2.Server{}
-		a.HTTPServer.Handler = h2c.NewHandler(http.HandlerFunc(a.httpHandler), http2Server)
-	} else {
-		a.HTTPServer.Handler = http.HandlerFunc(a.httpHandler)
-	}
+	http2Server := &http2.Server{}
+	a.HTTPServer.Handler = h2c.NewHandler(http.HandlerFunc(a.httpHandler), http2Server)
 
 	grpcServerOptions := make([]grpc.ServerOption, 0, 128)
 	if a.HandleMetrics {
@@ -151,7 +141,8 @@ func (a *GRPCApplication) Run(ctx application.Context) {
 		go func() {
 			defer wg.Done()
 			var err error
-			if a.UseTLS {
+			if a.HTTPServer.TLSConfig != nil &&
+				(len(a.HTTPServer.TLSConfig.Certificates) > 0 || a.HTTPServer.TLSConfig.GetCertificate != nil) {
 				err = a.HTTPServer.ServeTLS(lis, "", "")
 			} else {
 				err = a.HTTPServer.Serve(lis)
