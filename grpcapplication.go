@@ -2,6 +2,7 @@ package grpcapplication
 
 import (
 	"context"
+	"errors"
 	"io/ioutil"
 	"log"
 	"net"
@@ -66,6 +67,10 @@ func (a *GrpcApplication) Start() {
 		grpc.UnaryInterceptor(grpc_prometheus.UnaryServerInterceptor))
 	a.httpServeMux = http.NewServeMux()
 
+	if a.RegisterFunc != nil {
+		a.RegisterFunc(a.grpcServer, a.httpServeMux)
+	}
+
 	if a.HandleMetrics {
 		a.httpServeMux.Handle("/metrics", promhttp.Handler())
 	}
@@ -85,17 +90,6 @@ func (a *GrpcApplication) Start() {
 func (a *GrpcApplication) Run(ctx application.Context) {
 	var wg sync.WaitGroup
 
-	for _, lis := range a.Listeners {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			if err := a.HTTPServer.Serve(lis); err != nil {
-				a.Logger.Errorf("http serve error %q: %v", lis.Addr().String(), err)
-				ctx.Terminate()
-			}
-		}()
-	}
-
 	if a.App != nil {
 		wg.Add(1)
 		go func() {
@@ -104,38 +98,61 @@ func (a *GrpcApplication) Run(ctx application.Context) {
 		}()
 	}
 
+	for _, lis := range a.Listeners {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if err := a.HTTPServer.Serve(lis); err != nil {
+				if !errors.Is(err, http.ErrServerClosed) {
+					a.Logger.Errorf("http serve error: %q: %v", lis.Addr().String(), err)
+				}
+				ctx.Terminate()
+			}
+		}()
+	}
+
 	wg.Wait()
 }
 
 func (a *GrpcApplication) Terminate(ctx context.Context) {
+	var wg sync.WaitGroup
+
 	if a.App != nil {
-		a.App.Terminate(ctx)
+		go func() {
+			defer wg.Done()
+			a.App.Terminate(ctx)
+		}()
 	}
 
-	if err := a.HTTPServer.Shutdown(ctx); err != nil {
-		a.HTTPServer.Close()
-		a.Logger.Warningf("killed active http connections: %v", err)
-	}
+	go func() {
+		if err := a.HTTPServer.Shutdown(ctx); err != nil {
+			a.HTTPServer.Close()
+			a.Logger.Warningf("killed active http connections: %v", err)
+		}
 
-	kill := false
-	for {
-		select {
-		case <-ctx.Done():
-			kill = true
-		default:
+		kill := false
+		for {
+			select {
+			case <-ctx.Done():
+				kill = true
+			default:
+			}
+			if kill || a.connCount <= 0 {
+				break
+			}
+			<-time.After(250 * time.Millisecond)
 		}
-		if kill || a.connCount <= 0 {
-			break
+		a.grpcServer.Stop()
+		if kill {
+			a.Logger.Warning("killed active grpc connections")
 		}
-		<-time.After(250 * time.Millisecond)
-	}
-	a.grpcServer.Stop()
-	if kill {
-		a.Logger.Warning("killed active grpc connections")
-	}
+	}()
+
+	wg.Wait()
 }
 
 func (a *GrpcApplication) Stop() {
+	// first, GrpcAllication implementations
 	if a.App != nil {
 		a.App.Stop()
 	}
