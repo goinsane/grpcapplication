@@ -42,8 +42,8 @@ type GRPCApplication struct {
 	// If HandleMetrics is true, the GRPCApplication serves /metrics end-point for prometheus metrics .
 	HandleMetrics bool
 
-	// If HandleDebug is true, the GRPCApplication serves /debug end-point for pprof.
-	HandleDebug bool
+	// If HandlePprof is true, the GRPCApplication serves /debug/pprof/ end-point for pprof.
+	HandlePprof bool
 
 	started       int32
 	grpcServer    *grpc.Server
@@ -101,7 +101,7 @@ func (a *GRPCApplication) Start() {
 	if a.HandleMetrics {
 		a.httpServeMux.Handle("/metrics", promhttp.Handler())
 	}
-	if a.HandleDebug {
+	if a.HandlePprof {
 		a.httpServeMux.HandleFunc("/debug/pprof/", pprof.Index)
 		a.httpServeMux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
 		a.httpServeMux.HandleFunc("/debug/pprof/profile", pprof.Profile)
