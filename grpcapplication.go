@@ -36,6 +36,9 @@ type GRPCApplication struct {
 	// Use h2c
 	UseH2C bool
 
+	// Use TLS
+	UseTLS bool
+
 	// GRPCServerOptions for additional server options if needed.
 	GRPCServerOptions []grpc.ServerOption
 
@@ -147,7 +150,13 @@ func (a *GRPCApplication) Run(ctx application.Context) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			if err := a.HTTPServer.Serve(lis); err != http.ErrServerClosed {
+			var err error
+			if a.UseTLS {
+				err = a.HTTPServer.ServeTLS(lis, "", "")
+			} else {
+				err = a.HTTPServer.Serve(lis)
+			}
+			if err != http.ErrServerClosed {
 				a.Logger.Errorf("http serve error: %q: %v", lis.Addr().String(), err)
 			}
 			ctx.Terminate()
