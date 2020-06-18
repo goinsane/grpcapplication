@@ -33,6 +33,9 @@ type GRPCApplication struct {
 	// HTTPServer for using custom HTTP server if needed.
 	HTTPServer *http.Server
 
+	// Use h2c
+	UseH2C bool
+
 	// GRPCServerOptions for additional server options if needed.
 	GRPCServerOptions []grpc.ServerOption
 
@@ -62,7 +65,7 @@ type RegisterFunc func(grpcServer *grpc.Server, httpServeMux *http.ServeMux)
 func (a *GRPCApplication) httpHandler(w http.ResponseWriter, r *http.Request) {
 	atomic.AddInt64(&a.connCount, 1)
 	defer atomic.AddInt64(&a.connCount, -1)
-	if r.ProtoMajor == 2 && strings.Contains(r.Header.Get("Content-Type"), "application/grpc") {
+	if r.ProtoMajor == 2 && strings.HasPrefix(r.Header.Get("Content-Type"), "application/grpc") {
 		func() {
 			atomic.AddInt64(&a.grpcConnCount, 1)
 			defer atomic.AddInt64(&a.grpcConnCount, -1)
@@ -89,8 +92,12 @@ func (a *GRPCApplication) Start() {
 			ErrorLog: log.New(ioutil.Discard, "", log.LstdFlags),
 		}
 	}
-	http2Server := &http2.Server{}
-	a.HTTPServer.Handler = h2c.NewHandler(http.HandlerFunc(a.httpHandler), http2Server)
+	if a.UseH2C {
+		http2Server := &http2.Server{}
+		a.HTTPServer.Handler = h2c.NewHandler(http.HandlerFunc(a.httpHandler), http2Server)
+	} else {
+		a.HTTPServer.Handler = http.HandlerFunc(a.httpHandler)
+	}
 
 	grpcServerOptions := make([]grpc.ServerOption, 0, 128)
 	if a.HandleMetrics {
