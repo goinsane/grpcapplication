@@ -118,13 +118,17 @@ func (a *GrpcApplication) Terminate(ctx context.Context) {
 	var wg sync.WaitGroup
 
 	if a.App != nil {
+		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			a.App.Terminate(ctx)
 		}()
 	}
 
+	wg.Add(1)
 	go func() {
+		defer wg.Done()
+
 		if err := a.HTTPServer.Shutdown(ctx); err != nil {
 			a.HTTPServer.Close()
 			a.Logger.Warningf("killed active http connections: %v", err)
