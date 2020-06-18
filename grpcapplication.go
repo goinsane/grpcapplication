@@ -2,7 +2,6 @@ package grpcapplication
 
 import (
 	"context"
-	"errors"
 	"io/ioutil"
 	"log"
 	"net"
@@ -112,12 +111,10 @@ func (a *GrpcApplication) Run(ctx application.Context) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			if err := a.HTTPServer.Serve(lis); err != nil {
-				if !errors.Is(err, http.ErrServerClosed) {
-					a.Logger.Errorf("http serve error: %q: %v", lis.Addr().String(), err)
-				}
-				ctx.Terminate()
+			if err := a.HTTPServer.Serve(lis); err != http.ErrServerClosed {
+				a.Logger.Errorf("http serve error: %q: %v", lis.Addr().String(), err)
 			}
+			ctx.Terminate()
 		}()
 	}
 
@@ -142,7 +139,7 @@ func (a *GrpcApplication) Terminate(ctx context.Context) {
 
 		err = a.HTTPServer.Shutdown(ctx)
 		if err != nil {
-			a.HTTPServer.Close()
+			_ = a.HTTPServer.Close()
 			a.Logger.Warningf("closed active http connections: %v", err)
 		}
 
