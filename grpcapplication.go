@@ -31,10 +31,12 @@ type GrpcApplication struct {
 	HandleMetrics bool
 	HandleDebug   bool
 
-	started      int32
-	grpcServer   *grpc.Server
-	httpServeMux *http.ServeMux
-	connCount    int64
+	started       int32
+	grpcServer    *grpc.Server
+	httpServeMux  *http.ServeMux
+	connCount     int64
+	httpConnCount int64
+	grpcConnCount int64
 }
 
 type RegisterFunc func(grpcServer *grpc.Server, httpServeMux *http.ServeMux)
@@ -43,9 +45,17 @@ func (a *GrpcApplication) httpHandler(w http.ResponseWriter, r *http.Request) {
 	atomic.AddInt64(&a.connCount, 1)
 	defer atomic.AddInt64(&a.connCount, -1)
 	if r.ProtoMajor == 2 && strings.Contains(r.Header.Get("Content-Type"), "application/grpc") {
-		a.grpcServer.ServeHTTP(w, r)
+		func() {
+			atomic.AddInt64(&a.grpcConnCount, 1)
+			defer atomic.AddInt64(&a.grpcConnCount, -1)
+			a.grpcServer.ServeHTTP(w, r)
+		}()
 	} else {
-		a.httpServeMux.ServeHTTP(w, r)
+		func() {
+			atomic.AddInt64(&a.httpConnCount, 1)
+			defer atomic.AddInt64(&a.httpConnCount, -1)
+			a.httpServeMux.ServeHTTP(w, r)
+		}()
 	}
 }
 
@@ -137,8 +147,7 @@ func (a *GrpcApplication) Terminate(ctx context.Context) {
 		}
 
 		for {
-			<-time.After(250 * time.Millisecond)
-			if a.connCount <= 0 {
+			if a.grpcConnCount <= 0 {
 				err = nil
 				break
 			}
@@ -146,6 +155,7 @@ func (a *GrpcApplication) Terminate(ctx context.Context) {
 			if err != nil {
 				break
 			}
+			<-time.After(250 * time.Millisecond)
 		}
 		a.grpcServer.Stop()
 		if err != nil {
