@@ -1,8 +1,8 @@
+// Package grpcapplication offers an Application implementation of github.com/goinsane/application for GRPC applications.
 package grpcapplication
 
 import (
 	"context"
-	"errors"
 	"io/ioutil"
 	"log"
 	"net"
@@ -22,14 +22,28 @@ import (
 	"google.golang.org/grpc"
 )
 
-type GrpcApplication struct {
-	App           application.Application
-	Logger        *xlog.Logger
-	HTTPServer    *http.Server
-	RegisterFunc  RegisterFunc
-	Listeners     []net.Listener
+// GRPCApplication is an implementation of Application optimized by GRPC applications.
+type GRPCApplication struct {
+	// App is an Application instance for wrapping notification methods if needed.
+	App application.Application
+
+	// Logger logs error and warning logs if needed.
+	Logger *xlog.Logger
+
+	// HTTPServer for using custom HTTP server if needed.
+	HTTPServer *http.Server
+
+	// RegisterFunc for registering GRPC services. If it is nil, the GRPCApplication doesn't handle any request.
+	RegisterFunc RegisterFunc
+
+	// Listeners for serving requests. If it is nil, the GRPCApplication doesn't serve any connections.
+	Listeners []net.Listener
+
+	// If HandleMetrics is true, the GRPCApplication serves /metrics end-point for prometheus metrics .
 	HandleMetrics bool
-	HandleDebug   bool
+
+	// If HandleDebug is true, the GRPCApplication serves /debug end-point for pprof.
+	HandleDebug bool
 
 	started       int32
 	grpcServer    *grpc.Server
@@ -39,9 +53,10 @@ type GrpcApplication struct {
 	grpcConnCount int64
 }
 
+// RegisterFunc is a type of function for using in GRPCApplication.
 type RegisterFunc func(grpcServer *grpc.Server, httpServeMux *http.ServeMux)
 
-func (a *GrpcApplication) httpHandler(w http.ResponseWriter, r *http.Request) {
+func (a *GRPCApplication) httpHandler(w http.ResponseWriter, r *http.Request) {
 	atomic.AddInt64(&a.connCount, 1)
 	defer atomic.AddInt64(&a.connCount, -1)
 	if r.ProtoMajor == 2 && strings.Contains(r.Header.Get("Content-Type"), "application/grpc") {
@@ -59,7 +74,9 @@ func (a *GrpcApplication) httpHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (a *GrpcApplication) Start() {
+// Start implements Application.Start(). It initializes HTTP and GRPC servers, calls RegisterFunc.
+// And after calls App.Start() if App isn't nil.
+func (a *GRPCApplication) Start() {
 	if !atomic.CompareAndSwapInt32(&a.started, 0, 1) {
 		panic("already started")
 	}
@@ -97,7 +114,9 @@ func (a *GrpcApplication) Start() {
 	}
 }
 
-func (a *GrpcApplication) Run(ctx application.Context) {
+// Run implements Application.Run(). It calls Serve methods for given listeners.
+// And also it calls App.Run() asynchronously if App isn't nil.
+func (a *GRPCApplication) Run(ctx application.Context) {
 	var wg sync.WaitGroup
 
 	if a.App != nil {
@@ -112,19 +131,19 @@ func (a *GrpcApplication) Run(ctx application.Context) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			if err := a.HTTPServer.Serve(lis); err != nil {
-				if !errors.Is(err, http.ErrServerClosed) {
-					a.Logger.Errorf("http serve error: %q: %v", lis.Addr().String(), err)
-				}
-				ctx.Terminate()
+			if err := a.HTTPServer.Serve(lis); err != http.ErrServerClosed {
+				a.Logger.Errorf("http serve error: %q: %v", lis.Addr().String(), err)
 			}
+			ctx.Terminate()
 		}()
 	}
 
 	wg.Wait()
 }
 
-func (a *GrpcApplication) Terminate(ctx context.Context) {
+// Terminate implements Application.Terminate(). It terminates servers.
+// And also it calls App.Terminate() asynchronously if App isn't nil.
+func (a *GRPCApplication) Terminate(ctx context.Context) {
 	var wg sync.WaitGroup
 
 	if a.App != nil {
@@ -142,7 +161,7 @@ func (a *GrpcApplication) Terminate(ctx context.Context) {
 
 		err = a.HTTPServer.Shutdown(ctx)
 		if err != nil {
-			a.HTTPServer.Close()
+			_ = a.HTTPServer.Close()
 			a.Logger.Warningf("closed active http connections: %v", err)
 		}
 
@@ -166,8 +185,10 @@ func (a *GrpcApplication) Terminate(ctx context.Context) {
 	wg.Wait()
 }
 
-func (a *GrpcApplication) Stop() {
-	// first implement GrpcApplication codes
+// Stop implements Application.Stop().
+// And also it calls App.Stop() if App isn't nil.
+func (a *GRPCApplication) Stop() {
+	// you should implement GRPCApplication codes firstly
 	if a.App != nil {
 		a.App.Stop()
 	}
