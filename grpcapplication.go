@@ -128,27 +128,28 @@ func (a *GrpcApplication) Terminate(ctx context.Context) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+		var err error
 
-		if err := a.HTTPServer.Shutdown(ctx); err != nil {
+		err = a.HTTPServer.Shutdown(ctx)
+		if err != nil {
 			a.HTTPServer.Close()
-			a.Logger.Warningf("killed active http connections: %v", err)
+			a.Logger.Warningf("closed active http connections: %v", err)
 		}
 
-		kill := false
 		for {
-			select {
-			case <-ctx.Done():
-				kill = true
-			default:
+			if a.connCount <= 0 {
+				err = nil
+				break
 			}
-			if kill || a.connCount <= 0 {
+			err = ctx.Err()
+			if err != nil {
 				break
 			}
 			<-time.After(250 * time.Millisecond)
 		}
 		a.grpcServer.Stop()
-		if kill {
-			a.Logger.Warning("killed active grpc connections")
+		if err != nil {
+			a.Logger.Warningf("closed active grpc connections: %v", err)
 		}
 	}()
 
@@ -156,7 +157,7 @@ func (a *GrpcApplication) Terminate(ctx context.Context) {
 }
 
 func (a *GrpcApplication) Stop() {
-	// first, GrpcAllication implementations
+	// first implement GrpcApplication codes
 	if a.App != nil {
 		a.App.Stop()
 	}
