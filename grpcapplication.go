@@ -15,7 +15,7 @@ import (
 
 	"github.com/goinsane/application"
 	"github.com/goinsane/xlog"
-	"github.com/grpc-ecosystem/go-grpc-prometheus"
+	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
@@ -32,6 +32,9 @@ type GRPCApplication struct {
 
 	// HTTPServer for using custom HTTP server if needed.
 	HTTPServer *http.Server
+
+	// GRPCServerOptions for additional server options if needed.
+	GRPCServerOptions []grpc.ServerOption
 
 	// RegisterFunc for registering GRPC services. If it is nil, the GRPCApplication doesn't handle any request.
 	RegisterFunc RegisterFunc
@@ -89,9 +92,15 @@ func (a *GRPCApplication) Start() {
 	http2Server := &http2.Server{}
 	a.HTTPServer.Handler = h2c.NewHandler(http.HandlerFunc(a.httpHandler), http2Server)
 
-	a.grpcServer = grpc.NewServer(
-		grpc.StreamInterceptor(grpc_prometheus.StreamServerInterceptor),
-		grpc.UnaryInterceptor(grpc_prometheus.UnaryServerInterceptor))
+	grpcServerOptions := make([]grpc.ServerOption, 0, 128)
+	if a.HandleMetrics {
+		grpcServerOptions = append(grpcServerOptions, []grpc.ServerOption{
+			grpc.StreamInterceptor(grpc_prometheus.StreamServerInterceptor),
+			grpc.UnaryInterceptor(grpc_prometheus.UnaryServerInterceptor),
+		}...)
+	}
+	grpcServerOptions = append(grpcServerOptions, a.GRPCServerOptions...)
+	a.grpcServer = grpc.NewServer(grpcServerOptions...)
 	a.httpServeMux = http.NewServeMux()
 
 	if a.RegisterFunc != nil {
