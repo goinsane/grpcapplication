@@ -23,6 +23,8 @@ github.com/goinsane/application v0.1.1 h1:uuW6IFli3fDvpH9Q3a0D37MTTN7XkKux5rA5yK
 github.com/goinsane/application v0.1.1/go.mod h1:ULqSWs5gN1HKqjS9u9mAmHcrwlzO5XLRKSks+K8UWXs=
 github.com/goinsane/application v0.2.0 h1:/QOOK3ekuE4fqrAQPj18O+30x8QOR9yhJVUqcn77L8Q=
 github.com/goinsane/application v0.2.0/go.mod h1:ULqSWs5gN1HKqjS9u9mAmHcrwlzO5XLRKSks+K8UWXs=
+github.com/goinsane/application v0.3.0 h1:Jy/HgvwzZf/7jeUA3CmO/cxmOXyIUQxb0d/74ulbjkI=
+github.com/goinsane/application v0.3.0/go.mod h1:ULqSWs5gN1HKqjS9u9mAmHcrwlzO5XLRKSks+K8UWXs=
 github.com/goinsane/xlog v0.6.2 h1:XWpZteKikopmxc7yfSCRY+APDM/wH018yI2uDOZ4I3A=
 github.com/goinsane/xlog v0.6.2/go.mod h1:LXGz2XS2nzNGvHbFAAPrPDELBXCeQyo2vb60ostxKyU=
 github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b h1:VKtxabqXZkF25pY9ekfRL6a582T4P37/31XEstQ5p58=
