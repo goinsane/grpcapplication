@@ -3,7 +3,7 @@ module github.com/goinsane/grpcapplication
 go 1.11
 
 require (
-	github.com/goinsane/application v0.1.1
+	github.com/goinsane/application v0.2.0
 	github.com/goinsane/xlog v0.6.2
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
 	github.com/prometheus/client_golang v1.2.0
