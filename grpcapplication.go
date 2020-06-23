@@ -130,14 +130,14 @@ func (a *GRPCApplication) Start(ctx application.Context) {
 
 // Run implements Application.Run(). It calls Serve methods for given listeners.
 // And also it calls App.Run() asynchronously if App isn't nil.
-func (a *GRPCApplication) Run() {
+func (a *GRPCApplication) Run(ctx application.Context) {
 	var wg sync.WaitGroup
 
 	if a.App != nil {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			a.App.Run()
+			a.App.Run(ctx)
 		}()
 	}
 
