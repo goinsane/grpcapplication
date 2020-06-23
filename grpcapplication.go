@@ -48,7 +48,6 @@ type GRPCApplication struct {
 	// If HandlePprof is true, the GRPCApplication serves /debug/pprof/ end-point for pprof.
 	HandlePprof bool
 
-	ctx           application.Context
 	grpcServer    *grpc.Server
 	httpServeMux  *http.ServeMux
 	connCount     int64
@@ -87,8 +86,6 @@ func (a *GRPCApplication) httpHandler(w http.ResponseWriter, r *http.Request) {
 // Start implements Application.Start(). It initializes HTTP and GRPC servers, calls RegisterFunc.
 // And after calls App.Start() if App isn't nil.
 func (a *GRPCApplication) Start(ctx application.Context) {
-	a.ctx = ctx
-
 	if a.HTTPServer == nil {
 		a.HTTPServer = &http.Server{
 			ErrorLog: log.New(ioutil.Discard, "", log.LstdFlags),
@@ -108,10 +105,6 @@ func (a *GRPCApplication) Start(ctx application.Context) {
 	a.grpcServer = grpc.NewServer(grpcServerOptions...)
 	a.httpServeMux = http.NewServeMux()
 
-	if a.RegisterFunc != nil {
-		a.RegisterFunc(a.grpcServer, a.httpServeMux)
-	}
-
 	if a.HandleMetrics {
 		a.httpServeMux.Handle("/metrics", promhttp.Handler())
 	}
@@ -125,6 +118,10 @@ func (a *GRPCApplication) Start(ctx application.Context) {
 
 	if a.App != nil {
 		a.App.Start(ctx)
+	}
+
+	if a.RegisterFunc != nil {
+		a.RegisterFunc(a.grpcServer, a.httpServeMux)
 	}
 }
 
@@ -155,7 +152,7 @@ func (a *GRPCApplication) Run(ctx application.Context) {
 			if err != http.ErrServerClosed {
 				a.Logger.Errorf("http serve error: %q: %v", lis.Addr().String(), err)
 			}
-			a.ctx.Terminate()
+			ctx.Terminate()
 		}()
 	}
 
