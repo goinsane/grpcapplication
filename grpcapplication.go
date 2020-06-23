@@ -48,6 +48,7 @@ type GRPCApplication struct {
 	// If HandlePprof is true, the GRPCApplication serves /debug/pprof/ end-point for pprof.
 	HandlePprof bool
 
+	ctx           application.Context
 	grpcServer    *grpc.Server
 	httpServeMux  *http.ServeMux
 	connCount     int64
@@ -86,6 +87,8 @@ func (a *GRPCApplication) httpHandler(w http.ResponseWriter, r *http.Request) {
 // Start implements Application.Start(). It initializes HTTP and GRPC servers, calls RegisterFunc.
 // And after calls App.Start() if App isn't nil.
 func (a *GRPCApplication) Start(ctx application.Context) {
+	a.ctx = ctx
+
 	if a.HTTPServer == nil {
 		a.HTTPServer = &http.Server{
 			ErrorLog: log.New(ioutil.Discard, "", log.LstdFlags),
@@ -152,7 +155,7 @@ func (a *GRPCApplication) Run() {
 			if err != http.ErrServerClosed {
 				a.Logger.Errorf("http serve error: %q: %v", lis.Addr().String(), err)
 			}
-			ctx.Terminate()
+			a.ctx.Terminate()
 		}()
 	}
 
