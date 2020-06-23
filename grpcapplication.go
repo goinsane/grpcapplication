@@ -48,7 +48,6 @@ type GRPCApplication struct {
 	// If HandlePprof is true, the GRPCApplication serves /debug/pprof/ end-point for pprof.
 	HandlePprof bool
 
-	started       int32
 	grpcServer    *grpc.Server
 	httpServeMux  *http.ServeMux
 	connCount     int64
@@ -60,8 +59,15 @@ type GRPCApplication struct {
 type RegisterFunc func(grpcServer *grpc.Server, httpServeMux *http.ServeMux)
 
 func (a *GRPCApplication) httpHandler(w http.ResponseWriter, r *http.Request) {
+	defer func() {
+		if e := recover(); e != nil {
+			xlog.Errorf("panic on http handler: %v", e)
+		}
+	}()
+
 	atomic.AddInt64(&a.connCount, 1)
 	defer atomic.AddInt64(&a.connCount, -1)
+
 	if r.ProtoMajor == 2 && strings.HasPrefix(r.Header.Get("Content-Type"), "application/grpc") {
 		func() {
 			atomic.AddInt64(&a.grpcConnCount, 1)
@@ -79,11 +85,7 @@ func (a *GRPCApplication) httpHandler(w http.ResponseWriter, r *http.Request) {
 
 // Start implements Application.Start(). It initializes HTTP and GRPC servers, calls RegisterFunc.
 // And after calls App.Start() if App isn't nil.
-func (a *GRPCApplication) Start() {
-	if !atomic.CompareAndSwapInt32(&a.started, 0, 1) {
-		panic("already started")
-	}
-
+func (a *GRPCApplication) Start(ctx application.Context) {
 	if a.HTTPServer == nil {
 		a.HTTPServer = &http.Server{
 			ErrorLog: log.New(ioutil.Discard, "", log.LstdFlags),
@@ -119,20 +121,20 @@ func (a *GRPCApplication) Start() {
 	}
 
 	if a.App != nil {
-		a.App.Start()
+		a.App.Start(ctx)
 	}
 }
 
 // Run implements Application.Run(). It calls Serve methods for given listeners.
 // And also it calls App.Run() asynchronously if App isn't nil.
-func (a *GRPCApplication) Run(ctx application.Context) {
+func (a *GRPCApplication) Run() {
 	var wg sync.WaitGroup
 
 	if a.App != nil {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			a.App.Run(ctx)
+			a.App.Run()
 		}()
 	}
 
