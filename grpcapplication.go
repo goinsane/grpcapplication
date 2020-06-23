@@ -36,17 +36,17 @@ type GRPCApplication struct {
 	// GRPCServerOptions for additional server options if needed.
 	GRPCServerOptions []grpc.ServerOption
 
-	// RegisterFunc for registering GRPC services. If it is nil, the GRPCApplication doesn't handle any request.
-	RegisterFunc RegisterFunc
-
-	// Listeners for serving requests. If it is nil, the GRPCApplication doesn't serve any connections.
-	Listeners []net.Listener
-
 	// If HandleMetrics is true, the GRPCApplication serves /metrics end-point for prometheus metrics .
 	HandleMetrics bool
 
 	// If HandlePprof is true, the GRPCApplication serves /debug/pprof/ end-point for pprof.
 	HandlePprof bool
+
+	// RegisterFunc for registering GRPC services. If it is nil, the GRPCApplication doesn't handle any request.
+	RegisterFunc RegisterFunc
+
+	// Listeners for serving requests. If it is nil, the GRPCApplication doesn't serve any connections.
+	Listeners []net.Listener
 
 	grpcServer    *grpc.Server
 	httpServeMux  *http.ServeMux
@@ -56,7 +56,7 @@ type GRPCApplication struct {
 }
 
 // RegisterFunc is a type of function for using in GRPCApplication.
-type RegisterFunc func(grpcServer *grpc.Server, httpServeMux *http.ServeMux)
+type RegisterFunc func(ctx application.Context, grpcServer *grpc.Server, httpServeMux *http.ServeMux)
 
 func (a *GRPCApplication) httpHandler(w http.ResponseWriter, r *http.Request) {
 	defer func() {
@@ -102,6 +102,7 @@ func (a *GRPCApplication) Start(ctx application.Context) {
 		}...)
 	}
 	grpcServerOptions = append(grpcServerOptions, a.GRPCServerOptions...)
+
 	a.grpcServer = grpc.NewServer(grpcServerOptions...)
 	a.httpServeMux = http.NewServeMux()
 
@@ -121,7 +122,7 @@ func (a *GRPCApplication) Start(ctx application.Context) {
 	}
 
 	if a.RegisterFunc != nil {
-		a.RegisterFunc(a.grpcServer, a.httpServeMux)
+		a.RegisterFunc(ctx, a.grpcServer, a.httpServeMux)
 	}
 }
 
