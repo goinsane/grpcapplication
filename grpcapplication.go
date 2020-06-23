@@ -205,7 +205,7 @@ func (a *GRPCApplication) Terminate(ctx context.Context) {
 }
 
 // Stop implements Application.Stop().
-// And also it calls App.Stop() if App isn't nil.
+// And after calls App.Stop() if App isn't nil.
 func (a *GRPCApplication) Stop() {
 	// you should implement GRPCApplication codes firstly
 	if a.App != nil {
